@@ -916,7 +916,7 @@ function yearGZ(d){const y=d.getFullYear(),ts=d.getTime(),lc=jqDate(y,"立春");
 function monthGZ(d){const ts=d.getTime(),y=d.getFullYear();let bi=-1,bts=-Infinity,bjd=null;for(let yr=y-1;yr<=y+1;yr++)for(let i=0;i<MJQ.length;i++){const jd=jqDate(yr,MJQ[i]);if(jd&&jd.getTime()<=ts&&jd.getTime()>bts){bts=jd.getTime();bi=i;bjd=jd;}}if(bi<0)bi=1;const zi=MZI[bi],yg=yearGZ(d);const mt={甲:2,己:2,乙:4,庚:4,丙:6,辛:6,丁:8,壬:8,戊:0,癸:0};return{gan:TG[(mt[yg.gan]+(zi-2+12)%12)%10],zhi:DZ[zi],jqDate:bjd};}
 function dayGZ(y,m,d){const diff=Math.round((new Date(y,m-1,d)-new Date(1992,10,29))/86400000);return{gan:TG[((5+diff)%10+10)%10],zhi:DZ[((9+diff)%12+12)%12]};}
 function hourGZ(h,dg){
-  // 晚子時(h=23)：地支仍是子，但天干+2（視為隔日子時）
+  // 晚子時(h=23)：日柱不換日，地支仍是子，時干以「隔日日干」起子時（等於天干+2）
   var isLateZi=(h===23);
   var zi=h===0||h===23?0:h<3?1:h<5?2:h<7?3:h<9?4:h<11?5:h<13?6:h<15?7:h<17?8:h<19?9:h<21?10:11;
   var ws={甲:0,己:0,乙:2,庚:2,丙:4,辛:4,丁:6,壬:6,戊:8,癸:8};
@@ -949,7 +949,8 @@ function calcDaYun(birthDate,gender,yearGan,monthGan,monthZhi){
 }
 function calcBazi(dt){
   const h=dt.getHours(),isWan=h===23;
-  const adj=isWan?new Date(dt.getTime()+86400000):dt;
+  // 晚子時不換日：年、月、日柱一律用出生當天排（時柱天干由 hourGZ 以隔日日干起）
+  const adj=dt;
   const yp=yearGZ(adj),mp=monthGZ(adj);
   const dp=dayGZ(adj.getFullYear(),adj.getMonth()+1,adj.getDate());
   const tp=hourGZ(h,dp.gan);const ri=dp.gan;
@@ -1018,6 +1019,26 @@ const UNLOCK_KEY=(window.STORAGE_PREFIX||'')+'bazi_unlock_v1';
 // Google Apps Script 序號驗證網址（請替換成你的實際網址）
 const UNLOCK_API_URL=window.PARTNER_UNLOCK_API || 'https://script.google.com/macros/s/AKfycbxl5gL5d-phI3ihFVKbbEBKfaG6u-AvAvAnfcuqneBhYNCOThwW4jjb62ztaqZBLZOW/exec';
 
+// Portaly 商品頁網址：開好商品後把網址填進引號裡，解鎖視窗就會出現「線上購買」按鈕（留空＝隱藏按鈕）
+const PORTALY_URL='';
+
+// 取得目前有效的推薦碼（客人是點誰的推薦連結進來的，30天內有效）
+function getActiveRefCode(){
+  try{
+    var refData=JSON.parse(localStorage.getItem('fsgg_ref')||'null');
+    if(!refData||!refData.code) return '';
+    if(Date.now()-refData.savedAt>30*24*60*60*1000) return '';
+    return refData.code;
+  }catch(e){ return ''; }
+}
+
+// 產生「加LINE購買」連結：用 oaMessage 格式，客人點開 LINE 時訊息會自動帶推薦碼
+function getBuyLineUrl(){
+  var ref=getActiveRefCode();
+  var msg='你好，我想購買命盤完整解鎖序號'+(ref?'（推薦碼：'+ref+'）':'');
+  return 'https://line.me/R/oaMessage/%40587ysxge/?'+encodeURIComponent(msg);
+}
+
 function isUnlocked(){
   try{
     var data=JSON.parse(localStorage.getItem(UNLOCK_KEY)||'null');
@@ -1049,7 +1070,8 @@ function showUnlockModal(){
       <div id="unlockError" style="display:none;font-size:12px;color:#A54E3E;text-align:center;margin-bottom:10px;font-family:'Noto Sans TC',sans-serif"></div>
       <button onclick="submitUnlockCode()" style="width:100%;padding:13px;font-size:14px;font-family:'Noto Sans TC',sans-serif;background:var(--text);color:var(--card);border:none;cursor:pointer;font-weight:700;letter-spacing:6px;margin-bottom:14px">確認解鎖</button>
       <div style="text-align:center;margin-bottom:14px;font-family:'Noto Sans TC',sans-serif">
-        <a href="${window.PARTNER_LINE_URL || 'https://line.me/R/ti/p/@587ysxge'}" target="_blank" rel="noopener" style="font-size:12px;color:#06C755;text-decoration:none">還沒有序號？點此加LINE洽詢購買 →</a>
+        ${PORTALY_URL?'<a href="'+PORTALY_URL+'" target="_blank" rel="noopener" style="display:block;padding:12px;margin-bottom:12px;background:var(--accent);color:#FCFBF2;font-size:14px;font-weight:700;letter-spacing:2px;text-decoration:none;border-radius:999px">💳 線上購買序號（刷卡 / LINE Pay）</a>':''}
+        <a href="${getBuyLineUrl()}" target="_blank" rel="noopener" style="font-size:12px;color:#06C755;text-decoration:none">${PORTALY_URL?'或加LINE洽詢老師購買 →':'還沒有序號？點此加LINE洽詢購買 →'}</a>
       </div>
       <div style="text-align:center;font-family:'Noto Sans TC',sans-serif">
         <button onclick="closeUnlockModal()" style="font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;text-decoration:underline">先繼續看免費內容</button>
@@ -1085,7 +1107,8 @@ function submitUnlockCode(){
     return;
   }
 
-  fetch(UNLOCK_API_URL+'?code='+encodeURIComponent(code))
+  var refParam=getActiveRefCode()?'&ref='+encodeURIComponent(getActiveRefCode()):'';
+  fetch(UNLOCK_API_URL+'?code='+encodeURIComponent(code)+refParam)
     .then(function(res){ return res.json(); })
     .then(function(data){
       if(data&&data.valid){
@@ -1259,15 +1282,8 @@ function doCalc(){
   const isLateZi=(h===23); // 晚子時：日柱進位隔日
   const isEarlyZi=(h===0); // 早子時：當日子時
   const calcH=isJiShi?11:h; // 吉時用午時
-  // 晚子時：日柱為隔日
-  let dt;
-  if(isLateZi){
-    const nextDay=new Date(y,m-1,d);
-    nextDay.setDate(nextDay.getDate()+1);
-    dt=new Date(nextDay.getFullYear(),nextDay.getMonth(),nextDay.getDate(),23,0,0);
-  } else {
-    dt=new Date(y,m-1,d,calcH,0,0);
-  }
+  // 晚子時：日柱不換日（用出生當天），時柱天干在 hourGZ 內以隔日日干起子時
+  let dt=new Date(y,m-1,d,calcH,0,0);
   if(isNaN(dt.getTime()))return;
   gRes=calcBazi(dt);
   gLyYear=new Date().getFullYear();
@@ -1680,7 +1696,7 @@ function renderAll(){
       wanNote.innerHTML='☀️ <strong>吉時排盤</strong>：未填時辰，以午時（11–13時）排盤，時柱僅供參考，建議知道時辰後重新排盤。';
     } else if(gRes.isLateZi){
       wanNote.style.display='block';
-      wanNote.innerHTML='🌙 <strong>晚子時</strong>：23時出生，日柱已進位隔日計算，時柱天干順移兩位。';
+      wanNote.innerHTML='🌙 <strong>晚子時</strong>：23時出生，日柱用出生當日（不換日），時柱天干以隔日日干起子時。';
     } else if(gRes.isEarlyZi){
       wanNote.style.display='block';
       wanNote.innerHTML='🌑 <strong>早子時</strong>：00時出生，屬當日子時，日柱不進位。';
@@ -1707,8 +1723,7 @@ function renderAll(){
     if(gRes.isJiShi){
       pillarDL.textContent=dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日 吉時（午時排盤）';
     } else if(gRes.isLateZi){
-      var origD=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()-1);
-      pillarDL.textContent=origD.getFullYear()+'年'+(origD.getMonth()+1)+'月'+origD.getDate()+'日 晚子時（23時）';
+      pillarDL.textContent=dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日 晚子時（23時）';
     } else if(gRes.isEarlyZi){
       pillarDL.textContent=dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日 早子時（00時）';
     } else {
@@ -2352,7 +2367,7 @@ function savePillarImg(){
   const mgInfo=GUAS[mgNum]||{};
   const dirs=GUA_DIRS[mgNum]||{吉:{},凶:{}};
   const hNames=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-  const hIdx=dt.getHours()<1?0:dt.getHours()<3?1:dt.getHours()<5?2:dt.getHours()<7?3:dt.getHours()<9?4:dt.getHours()<11?5:dt.getHours()<13?6:dt.getHours()<15?7:dt.getHours()<17?8:dt.getHours()<19?9:dt.getHours()<21?10:11;
+  const hIdx=dt.getHours()<1?0:dt.getHours()<3?1:dt.getHours()<5?2:dt.getHours()<7?3:dt.getHours()<9?4:dt.getHours()<11?5:dt.getHours()<13?6:dt.getHours()<15?7:dt.getHours()<17?8:dt.getHours()<19?9:dt.getHours()<21?10:dt.getHours()<23?11:0;
   const wxC=gRes.wxC||{};
 
   // ── 固定高度常數 ──
@@ -2459,7 +2474,7 @@ function savePillarImg(){
     + '<div style="flex:1;height:1px;background:#BCC2A4"></div>'
     + '</div>'
     + '<div style="font-size:30px;font-weight:600;color:#161B12;letter-spacing:5px;margin-bottom:8px">'
-    + dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日 ・ '+hNames[hIdx]+'時'
+    + dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日 ・ '+(gRes.isJiShi?'吉':(gRes.isWan?'晚子':hNames[hIdx]))+'時'
     + '</div>'
     + ((nameVal||gGender)
       ? '<div style="font-size:13px;color:#8A9174;letter-spacing:2px">'
@@ -2551,16 +2566,14 @@ window.onload=()=>{
           savedAt: Date.now()
         }));
       }
-      // 把推薦碼注入到 LINE 按鈕的訊息裡
-      const refData = JSON.parse(localStorage.getItem('fsgg_ref') || 'null');
-      const expired = refData && (Date.now() - refData.savedAt > 30 * 24 * 60 * 60 * 1000);
-      if (refData && !expired) {
-        const refMsg = encodeURIComponent('我想購買命盤解析 推薦碼：' + refData.code);
-        const lineOa = window.PARTNER_LINE_URL || 'https://line.me/R/ti/p/@587ysxge';
-        // 替換所有 LINE 連結，讓它帶著推薦碼
+      // 把推薦碼注入到 LINE 按鈕：有推薦碼時，客人點 LINE 的第一句話會自動帶上推薦碼
+      const refCode = getActiveRefCode();
+      if (refCode) {
+        const refMsg = '你好，我想諮詢命盤服務（推薦碼：' + refCode + '）';
+        const lineOa = 'https://line.me/R/oaMessage/%40587ysxge/?' + encodeURIComponent(refMsg);
         document.querySelectorAll('.partner-line-link').forEach(function(el){
           el.href = lineOa;
-          el.setAttribute('data-ref', refData.code);
+          el.setAttribute('data-ref', refCode);
         });
       }
     } catch(e) {}
