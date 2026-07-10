@@ -1070,11 +1070,16 @@ function getActiveRefCode(){
   }catch(e){ return ''; }
 }
 
+// 取得 LINE 官方帳號 id：夥伴版（?line=xxx）優先，否則用威良的
+function getLineOaId(){
+  var m=(window.PARTNER_LINE_URL||'').match(/@([A-Za-z0-9]+)/);
+  return m?m[1]:'587ysxge';
+}
 // 產生「加LINE購買」連結：用 oaMessage 格式，客人點開 LINE 時訊息會自動帶推薦碼
 function getBuyLineUrl(){
   var ref=getActiveRefCode();
   var msg='你好，我想購買命盤完整解鎖序號'+(ref?'（推薦碼：'+ref+'）':'');
-  return 'https://line.me/R/oaMessage/%40587ysxge/?'+encodeURIComponent(msg);
+  return 'https://line.me/R/oaMessage/%40'+getLineOaId()+'/?'+encodeURIComponent(msg);
 }
 
 function isUnlocked(){
@@ -2756,7 +2761,7 @@ window.onload=()=>{
       const refCode = getActiveRefCode();
       if (refCode) {
         const refMsg = '你好，我想諮詢命盤服務（推薦碼：' + refCode + '）';
-        const lineOa = 'https://line.me/R/oaMessage/%40587ysxge/?' + encodeURIComponent(refMsg);
+        const lineOa = 'https://line.me/R/oaMessage/%40' + getLineOaId() + '/?' + encodeURIComponent(refMsg);
         document.querySelectorAll('.partner-line-link').forEach(function(el){
           el.href = lineOa;
           el.setAttribute('data-ref', refCode);
